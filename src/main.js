@@ -1,23 +1,30 @@
-// Instead of CheerioCrawler let's use Playwright
-// to be able to render JavaScript.
 import { PlaywrightCrawler } from 'crawlee';
 
 const crawler = new PlaywrightCrawler({
-    requestHandler: async ({ page }) => {
-        // Wait for the actor cards to render.
-        await page.waitForSelector('div[class="results margin-bottom"]');
-        // Execute a function in the browser which targets
-        // the actor card elements and allows their manipulation.
-        const actorTexts = await page.$$eval('div[class="results margin-bottom"]', (els) => {
-            // Extract text content from the actor cards
-            return els.map((el) => el.textContent);
-        });
-        actorTexts.forEach((text, i) => {
-            if (text.includes('ITS1')){
-                console.log(`Job ${i + 1}: ${text}\n`);
+    requestHandler: async ({ page, request, enqueueLinks }) => {
+        console.log(`Processing: ${request.url}`)
+        if (request.label === 'DETAIL') {
+            const modifiedTimestamp = await page.locator('time[datetime]').getAttribute('datetime');
+            const results = {
+                url: request.url,
+                title: await page.locator('h1').textContent(),
+                description: await page.locator('p').textContent()
             }
-        });
-    },
+
+            console.log(results);
+        } else {
+            await page.waitForSelector('.btn-next a');
+            await enqueueLinks({
+                selector: '.btn-next a',
+                label: 'LIST',
+            })
+            await page.waitForSelector('div[class="col2 job-space"] a');
+            await enqueueLinks({
+                selector: 'div[class="col2 job-space"] a',
+                label: 'DETAIL', // <= note the different label
+            })
+        }
+    }
 });
 
-await crawler.run(['https://mn.gov/mnit/about-mnit/careers/']);
+await crawler.run(['https://www.linkedin.com/job/']);
